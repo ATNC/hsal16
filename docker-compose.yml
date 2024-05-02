@@ -1,0 +1,95 @@
+version: '3'
+services:
+  elasticsearch:
+    image: elasticsearch:7.9.1
+    container_name: elasticsearch
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - test_data:/usr/share/elasticsearch/data/
+      - ./config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml
+    environment:
+      - discovery.type=single-node
+      - http.host=0.0.0.0
+      - transport.host=0.0.0.0
+      - xpack.security.enabled=false
+      - xpack.monitoring.enabled=false
+      - cluster.name=elasticsearch
+      - bootstrap.memory_lock=true
+    networks:
+      - elk
+
+  logstash:
+    image: logstash:7.9.1
+    container_name: logstash
+    ports:
+      - "5044:5044"
+      - "9600:9600"
+    volumes:
+      - ./config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ./config/logstash.yml:/usr/share/logstash/config/logstash.yml
+      - ls_data:/usr/share/logstash/data
+      - ./logs:/logs
+
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: kibana:7.9.1
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    volumes:
+      - ./config/kibana.yml:/usr/share/kibana/config/kibana.yml
+      - kb_data:/usr/share/kibana/data
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.9.1
+    container_name: filebeat
+    volumes:
+      - ./filebeat/filebeat.yaml:/usr/share/filebeat/filebeat.yaml
+      - ./filebeat/mysql.yaml:/usr/share/filebeat/modules.d/mysql.yaml
+      - ./logs:/logs
+    networks:
+      - elk
+    depends_on:
+      - logstash
+      - mysql
+
+  mysql:
+    image: mysql:latest
+    env_file: .env
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql:/var/lib/mysql
+      - ./config/my.cnf://etc/mysql/conf.d/my.cnf:ro
+      - ./logs:/logs:rw
+  graylog:
+    image: graylog/graylog:5.2.4
+    volumes:
+      - ./graylog/graylog_journal:/usr/share/graylog/data/journal
+    environment:
+      GRAYLOG_HTTP_EXTERNAL_URI: http://graylog:9000/
+      GRAYLOG_PASSWORD_SECRET: $GRAYLOG_PASSWORD_SECRET
+    ports:
+      - 9000:9000
+    depends_on:
+      - elasticsearch
+      - mysql
+    networks:
+      - elk
+networks:
+  elk:
+    driver: bridge
+
+volumes:
+  test_data:
+  ls_data:
+  kb_data:

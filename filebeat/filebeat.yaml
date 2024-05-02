@@ -1,0 +1,12 @@
+filebeat.config.modules:
+  path: ${path.config}/modules.d/*.yaml
+filebeat.inputs:
+  - type: log
+    enabled: true
+    paths:
+      - /logs/slow-query.log
+    fields_under_root: true
+    fields:
+      type: slow-query-log
+output.logstash:
+  hosts: ["logstash:5044"]

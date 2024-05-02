@@ -1,0 +1,4 @@
+- module: mysql
+  slowlog:
+    enabled: true
+    var.paths: ["/logs/slow-query.log*"]
